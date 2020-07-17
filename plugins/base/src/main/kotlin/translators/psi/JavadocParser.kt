@@ -128,57 +128,89 @@ class JavadocParser(
         if (convertedDescriptionElements.isNotEmpty()) {
             return Description(P(convertedDescriptionElements))
         }
-
         return null
     }
 
-    private fun convertJavadocElements(elements: Iterable<PsiElement>): List<DocTag> =
-        elements.mapNotNull {
-            when (it) {
-                is PsiReference -> convertJavadocElements(it.children.toList())
-                is PsiInlineDocTag -> listOfNotNull(convertInlineDocTag(it))
-                is PsiDocParamRef -> listOfNotNull(it.toDocumentationLink())
-                is PsiDocTagValue,
-                is LeafPsiElement -> Jsoup.parse(it.text.trim()).body().childNodes().mapNotNull(::convertHtmlNode)
-                else -> null
-            }
-        }.flatten()
+    private inner class Parse: (Iterable<PsiElement>) -> List<DocTag> {
+        val driMap = mutableMapOf<String, DRI>()
 
-    private fun convertHtmlNode(node: Node, insidePre: Boolean = false): DocTag? = when (node) {
-        is TextNode -> Text(body = if (insidePre) node.wholeText else node.text())
-        is Element -> createBlock(node)
-        else -> null
-    }
-
-    private fun createBlock(element: Element): DocTag {
-        val children = element.childNodes().mapNotNull { convertHtmlNode(it) }
-        return when (element.tagName()) {
-            "p" -> P(listOf(Br, Br) + children)
-            "b" -> B(children)
-            "strong" -> Strong(children)
-            "i" -> I(children)
-            "em" -> Em(children)
-            "code" -> CodeBlock(children)
-            "pre" -> Pre(children)
-            "ul" -> Ul(children)
-            "ol" -> Ol(children)
-            "li" -> Li(children)
-            "a" -> createLink(element, children)
-            else -> Text(body = element.ownText())
+        private fun PsiElement.stringify(): String? = when (this) {
+            is PsiWhiteSpace -> ""
+            is PsiReference -> children.joinToString("") { it.stringify().orEmpty() }
+            is PsiInlineDocTag -> convertInlineDocTag(this)
+            is PsiDocParamRef -> toDocumentationLinkString()
+            is PsiDocTagValue,
+            is LeafPsiElement -> text.takeUnless { it.isBlank() }
+            else -> null
         }
+
+        private fun PsiElement.toDocumentationLinkString(
+            labelElement: PsiElement? = null
+        ): String? =
+            reference?.resolve()?.let {
+                val dri = DRI.from(it)
+                driMap[dri.toString()] = dri
+                val label = labelElement ?: children.firstOrNull {
+                    it is PsiDocToken && it.text.isNotBlank() && !it.isSharpToken()
+                } ?: this
+                """<a data-dri=$dri>${convertJavadocElements(listOfNotNull(label))}</a>"""
+            }
+
+        private fun convertInlineDocTag(tag: PsiInlineDocTag) = when (tag.name) {
+            "link", "linkplain" -> {
+                tag.referenceElement()?.toDocumentationLinkString(tag.dataElements.firstIsInstanceOrNull<PsiDocToken>())
+            }
+            "code", "literal" -> {
+                "<code data-inline>${tag.text}</code>"
+            }
+            "index" -> "<index>${tag.children.filterIsInstance<PsiDocTagValue>().joinToString { it.text }}</index>"
+            else -> tag.text
+        }
+
+        private fun createLink(element: Element, children: List<DocTag>): DocTag {
+            return when {
+                element.hasAttr("docref") ->
+                    A(children, params = mapOf("docref" to element.attr("docref")))
+                element.hasAttr("href") ->
+                    A(children, params = mapOf("href" to element.attr("href")))
+                element.hasAttr("data-dri") && driMap.containsKey(element.attr("data-dri")) ->
+                    DocumentationLink(driMap[element.attr("data-dri")]!!, children)
+                else -> Text(children = children)
+            }
+        }
+
+        private fun createBlock(element: Element): DocTag {
+            val children = element.childNodes().mapNotNull { convertHtmlNode(it) }
+            return when (element.tagName()) {
+                "blockquote" -> BlockQuote(children)
+                "p" -> P(children)
+                "b" -> B(children)
+                "strong" -> Strong(children)
+                "index" -> Index(children)
+                "i" -> I(children)
+                "em" -> Em(children)
+                "code" -> if (element.hasAttr("data-inline")) CodeInline(children) else CodeBlock(children)
+                "pre" -> Pre(children)
+                "ul" -> Ul(children)
+                "ol" -> Ol(children)
+                "li" -> Li(children)
+                "a" -> createLink(element, children)
+                else -> Text(body = element.ownText())
+            }
+        }
+
+        private fun convertHtmlNode(node: Node, insidePre: Boolean = false): DocTag? = when (node) {
+            is TextNode -> Text(body = if (insidePre) node.wholeText else node.text())
+            is Element -> createBlock(node)
+            else -> null
+        }
+
+        override fun invoke(elements: Iterable<PsiElement>): List<DocTag> =
+            Jsoup.parseBodyFragment(elements.joinToString("") { it.stringify().orEmpty() })
+                .body().childNodes().mapNotNull { convertHtmlNode(it) }
     }
 
-    private fun createLink(element: Element, children: List<DocTag>): DocTag {
-        return when {
-            element.hasAttr("docref") -> {
-                A(children, params = mapOf("docref" to element.attr("docref")))
-            }
-            element.hasAttr("href") -> {
-                A(children, params = mapOf("href" to element.attr("href")))
-            }
-            else -> Text(children = children)
-        }
-    }
+    private fun convertJavadocElements(elements: Iterable<PsiElement>): List<DocTag> = Parse().invoke(elements)
 
     private fun PsiDocToken.isSharpToken() = tokenType.toString() == "DOC_TAG_VALUE_SHARP_TOKEN"
 
@@ -190,17 +222,6 @@ class JavadocParser(
             } ?: this
             DocumentationLink(dri, convertJavadocElements(listOfNotNull(label)))
         }
-
-    private fun convertInlineDocTag(tag: PsiInlineDocTag) = when (tag.name) {
-        "link", "linkplain" -> {
-            tag.referenceElement()?.toDocumentationLink(tag.dataElements.firstIsInstanceOrNull<PsiDocToken>())
-        }
-        "code", "literal" -> {
-            CodeInline(listOf(Text(tag.text)))
-        }
-        "index" -> Index(tag.children.filterIsInstance<PsiDocTagValue>().map { Text(it.text) })
-        else -> Text(tag.text)
-    }
 
     private fun PsiDocTag.referenceElement(): PsiElement? =
         linkElement()?.let {

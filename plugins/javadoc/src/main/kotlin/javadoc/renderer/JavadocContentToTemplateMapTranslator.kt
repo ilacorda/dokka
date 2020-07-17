@@ -29,7 +29,7 @@ internal class JavadocContentToTemplateMapTranslator(
 
     private fun templateMapForNode(node: JavadocPageNode): TemplateMap =
         when (node) {
-            is JavadocModulePageNode -> InnerTranslator(node).templateMapForJavadocContentNode(node.content)
+            is JavadocModulePageNode -> InnerTranslator(node).templateMapForModulePageNode(node)
             is JavadocClasslikePageNode -> InnerTranslator(node).templateMapForClasslikeNode(node)
             is JavadocPackagePageNode -> InnerTranslator(node).templateMapForPackagePageNode(node)
             is TreeViewPage -> InnerTranslator(node).templateMapForTreeViewPage(node)
@@ -72,14 +72,18 @@ internal class JavadocContentToTemplateMapTranslator(
             )
         }
 
-        fun templateMapForPackagePageNode(node: JavadocPackagePageNode): TemplateMap {
-            return mapOf(
+        fun templateMapForModulePageNode(node: JavadocModulePageNode): TemplateMap =
+            mapOf(
+                "kind" to "module"
+            ) + templateMapForJavadocContentNode(node.content)
+
+        fun templateMapForPackagePageNode(node: JavadocPackagePageNode): TemplateMap =
+            mapOf(
                 "kind" to "package"
             ) + templateMapForJavadocContentNode(node.content)
-        }
 
-        fun templateMapForFunctionNode(node: JavadocFunctionNode): TemplateMap {
-            return mapOf(
+        fun templateMapForFunctionNode(node: JavadocFunctionNode): TemplateMap =
+            mapOf(
                 "brief" to htmlForContentNodes(node.brief, contextNode),
                 "parameters" to node.parameters.map { templateMapForParameterNode(it) },
                 "inlineParameters" to node.parameters.joinToString { renderInlineParameter(it) },
@@ -87,7 +91,6 @@ internal class JavadocContentToTemplateMapTranslator(
                 "signature" to templateMapForSignatureNode(node.signature),
                 "name" to node.name
             )
-        }
 
         fun templateMapForClasslikeNode(node: JavadocClasslikePageNode): TemplateMap =
             mapOf(
