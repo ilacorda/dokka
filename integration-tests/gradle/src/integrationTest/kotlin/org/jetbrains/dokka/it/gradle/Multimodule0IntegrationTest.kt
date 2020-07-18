@@ -26,9 +26,12 @@ class Multimodule0IntegrationTest(override val versions: BuildVersions) : Abstra
 
     @Test
     fun execute() {
-        val result = createGradleRunner(":moduleA:dokkaHtmlMultimodule", "-i","-s").buildRelaxed()
+        val result = createGradleRunner(":moduleA:dokkaHtmlMultimodule", "-i", "-s").buildRelaxed()
 
         assertEquals(TaskOutcome.SUCCESS, assertNotNull(result.task(":moduleA:dokkaHtmlMultimodule")).outcome)
+        assertEquals(TaskOutcome.SUCCESS, assertNotNull(result.task(":moduleA:moduleB:dokkaHtml")).outcome)
+        assertEquals(TaskOutcome.SUCCESS, assertNotNull(result.task(":moduleA:moduleC:dokkaHtml")).outcome)
+
 
         val outputDir = File(projectDir, "moduleA/build/dokka/htmlMultimodule")
         assertTrue(outputDir.isDirectory, "Missing dokka output directory")

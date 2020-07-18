@@ -62,16 +62,16 @@ class Android0GradleIntegrationTest(override val versions: BuildVersions) : Abst
             "Expected html files in html output directory"
         )
 
-        htmlOutputDir.allHtmlFiles().forEach { file ->
-            assertContainsNoErrorClass(file)
-            assertNoUnresolvedLinks(file)
-            assertNoHrefToMissingLocalFileOrDirectory(file)
-        }
-
         assertTrue(
             htmlOutputDir.allHtmlFiles().any { file ->
                 "https://developer.android.com/reference/android/content/Context.html" in file.readText()
             }, "Expected link to developer.android.com"
         )
+
+        htmlOutputDir.allHtmlFiles().forEach { file ->
+            assertContainsNoErrorClass(file)
+            assertNoUnresolvedLinks(file)
+            assertNoHrefToMissingLocalFileOrDirectory(file)
+        }
     }
 }

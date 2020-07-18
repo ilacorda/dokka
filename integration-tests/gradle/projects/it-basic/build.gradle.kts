@@ -15,6 +15,9 @@ tasks.withType<DokkaTask> {
     dokkaSourceSets {
         configureEach {
             moduleDisplayName = "Basic Project"
+            logger.lifecycle("configured: ${this.name}")
         }
     }
 }
+
+buildDir.resolve("")

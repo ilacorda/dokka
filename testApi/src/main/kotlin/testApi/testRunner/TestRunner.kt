@@ -37,7 +37,7 @@ abstract class AbstractCoreTest {
             logger.info("Output generated under: ${tempDir.root.absolutePath}")
         val newConfiguration =
             configuration.copy(
-                outputDir = tempDir.root.toPath().toAbsolutePath().toString()
+                outputDir = tempDir.root
             )
         DokkaTestGenerator(
             newConfiguration,
@@ -60,13 +60,18 @@ abstract class AbstractCoreTest {
         fileMap.materializeFiles(testDirPath.toAbsolutePath())
         if (!cleanupOutput)
             logger.info("Output generated under: ${testDirPath.toAbsolutePath()}")
-        val newConfiguration =
-            configuration.copy(
-                outputDir = testDirPath.toAbsolutePath().toString(),
-                sourceSets = configuration.sourceSets.map {
-                    it.copy(sourceRoots = it.sourceRoots.map { it.copy(path = "${testDirPath.toAbsolutePath()}/${it.path}") })
-                }
-            )
+        val newConfiguration = configuration.copy(
+            outputDir = testDirPath.toFile(),
+            sourceSets = configuration.sourceSets.map { sourceSet ->
+                sourceSet.copy(
+                    sourceRoots = sourceSet.sourceRoots.map { sourceRoot ->
+                        sourceRoot.copy(
+                            directory = testDirPath.toFile().resolve(sourceRoot.directory)
+                        )
+                    }
+                )
+            }
+        )
         DokkaTestGenerator(
             newConfiguration,
             logger,
@@ -163,8 +168,8 @@ abstract class AbstractCoreTest {
         var failOnWarning: Boolean = false
         private val sourceSets = mutableListOf<DokkaSourceSetImpl>()
         fun build() = DokkaConfigurationImpl(
-            outputDir = outputDir,
-            cacheRoot = cacheRoot,
+            outputDir = File(outputDir),
+            cacheRoot = cacheRoot?.let(::File),
             offlineMode = offlineMode,
             sourceSets = sourceSets,
             pluginsClasspath = pluginsClasspath,
@@ -215,11 +220,11 @@ abstract class AbstractCoreTest {
             moduleDisplayName = moduleDisplayName ?: moduleName,
             displayName = displayName,
             sourceSetID = DokkaSourceSetID(moduleName, name),
-            classpath = classpath,
-            sourceRoots = sourceRoots.map { SourceRootImpl(it) },
+            classpath = classpath.map(::File),
+            sourceRoots = sourceRoots.map(::File).map(::SourceRootImpl),
             dependentSourceSets = dependentSourceSets,
-            samples = samples,
-            includes = includes,
+            samples = samples.map(::File),
+            includes = includes.map(::File),
             includeNonPublic = includeNonPublic,
             includeRootPackage = includeRootPackage,
             reportUndocumented = reportUndocumented,
@@ -233,7 +238,7 @@ abstract class AbstractCoreTest {
             apiVersion = apiVersion,
             noStdlibLink = noStdlibLink,
             noJdkLink = noJdkLink,
-            suppressedFiles = suppressedFiles,
+            suppressedFiles = suppressedFiles.map(::File),
             analysisPlatform = Platform.fromString(analysisPlatform)
         )
     }

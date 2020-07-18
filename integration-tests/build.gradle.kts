@@ -31,6 +31,7 @@ subprojects {
         }
 
         useJUnit()
+        maxParallelForks = 4
     }
 
     tasks.check {

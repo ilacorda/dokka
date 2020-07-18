@@ -1,4 +1,4 @@
-import org.jetbrains.dokka.gradle.DokkaTask
+import org.jetbrains.dokka.gradle.configureWithKotlinSourceSet
 
 plugins {
     kotlin("multiplatform")
@@ -12,14 +12,17 @@ kotlin {
     linuxX64("linux")
     macosX64("macos")
     js()
-}
 
-tasks.withType<DokkaTask> {
-    dokkaSourceSets {
-        create("commonMain")
-        create("jvmMain")
-        create("linuxMain")
-        create("macosMain")
-        create("jsMain")
+    sourceSets {
+        named("commonMain") {
+            dependencies {
+                implementation(kotlin("stdlib-common"))
+            }
+        }
+        named("jvmMain") {
+            dependencies {
+                implementation(kotlin("stdlib-jdk8"))
+            }
+        }
     }
 }
