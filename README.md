@@ -704,3 +704,8 @@ Here's how to import and configure Dokka in IntelliJ IDEA 2019.3:
 * After Dokka is loaded into IDEA, open the Gradle tool window (View > Tool
   Windows > Gradle) and click on the top left "Refresh all Gradle projects"
   button
+
+In order to publish dokka locally use: `./gradlew publishToMavenLocal` and add `mavenLocal()` to repositories in the project you want to generate documentation for.
+This will allow you to run the latest version in your project from local maven repository. 
+Keep in mind that those builds are postfixed with `-SNAPSHOT`, eg. `1.4.0-rc-SNAPSHOT`, so remember to update plugin version.
+Dokka version generated with this build is taken from `gradle.properties` file under `dokka_version_base` and is visible in logs while running `publishToMavenLocal` task.
