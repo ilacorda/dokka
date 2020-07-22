@@ -1,6 +1,9 @@
 package org.jetbrains.dokka.gradle
 
 import org.gradle.api.Project
+import org.gradle.api.file.FileCollection
+import org.jetbrains.dokka.gradle.KotlinSourceSetGist.PredictedType.Main
+import org.jetbrains.dokka.gradle.KotlinSourceSetGist.PredictedType.Test
 import org.jetbrains.dokka.utilities.cast
 import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
@@ -18,10 +21,14 @@ private typealias KotlinCompilation =
 internal data class KotlinSourceSetGist(
     val name: String,
     val platform: String,
-    val classpath: List<File>,
+    val classpath: FileCollection,
     val sourceRoots: List<File>,
     val dependentSourceSets: List<String>,
-)
+) {
+    enum class PredictedType { Main, Test }
+
+    val predictedType: PredictedType = if ("test" in name.toLowerCase()) Test else Main
+}
 
 /**
  * @return null if the kotlin extension cannot be found,
@@ -36,23 +43,24 @@ internal fun KotlinProjectExtension.gistOf(sourceSet: KotlinSourceSet): KotlinSo
     return KotlinSourceSetGist(
         name = sourceSet.name,
         platform = platformOf(sourceSet),
-        classpath = classpathOf(sourceSet).filter(File::exists),
+        classpath = classpathOf(sourceSet),
         sourceRoots = sourceSet.kotlin.sourceDirectories.toList().filter(File::exists),
         dependentSourceSets = sourceSet.dependsOn.map { dependentSourceSet -> dependentSourceSet.name },
     )
 }
 
-private fun KotlinProjectExtension.classpathOf(sourceSet: KotlinSourceSet): List<File> {
+private fun KotlinProjectExtension.classpathOf(sourceSet: KotlinSourceSet): FileCollection {
     val compilations = compilationsOf(sourceSet)
     if (compilations.isNotEmpty()) {
         return compilations
-            .flatMap { compilation -> compileClasspathOf(compilation) }
-            .distinct()
+            .map { compilation -> compileClasspathOf(compilation) }
+            .reduce { acc, fileCollection -> acc + fileCollection }
     }
 
     return sourceSet.withAllDependentSourceSets()
         .toList()
-        .flatMap { it.kotlin.sourceDirectories }
+        .map { it.kotlin.sourceDirectories }
+        .reduce { acc, fileCollection -> acc + fileCollection }
 }
 
 private fun KotlinProjectExtension.platformOf(sourceSet: KotlinSourceSet): String {
@@ -85,12 +93,12 @@ private fun KotlinSingleTargetExtension.compilationsOf(sourceSet: KotlinSourceSe
     return target.compilations.filter { compilation -> sourceSet in compilation.kotlinSourceSets }
 }
 
-private fun compileClasspathOf(compilation: KotlinCompilation): List<File> {
+private fun compileClasspathOf(compilation: KotlinCompilation): FileCollection {
     if (compilation.target.isAndroidTarget()) {
         // This is a workaround for https://youtrack.jetbrains.com/issue/KT-33893
-        return compilation.compileKotlinTask.cast<KotlinCompile>().classpath.files.toList()
+        return compilation.compileKotlinTask.cast<KotlinCompile>().classpath
     }
-    return compilation.compileDependencyFiles.files.toList()
+    return compilation.compileDependencyFiles
 }
 
 private fun KotlinSourceSet.withAllDependentSourceSets(): Sequence<KotlinSourceSet> {
@@ -101,6 +109,3 @@ private fun KotlinSourceSet.withAllDependentSourceSets(): Sequence<KotlinSourceS
         }
     }
 }
-
-
-

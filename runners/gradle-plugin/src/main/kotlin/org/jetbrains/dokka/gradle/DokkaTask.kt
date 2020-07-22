@@ -14,11 +14,13 @@ open class DokkaTask : AbstractDokkaTask(DokkaBootstrapImpl::class) {
         project.container(GradleDokkaSourceSetBuilder::class.java, GradleDokkaSourceSetBuilderFactory())
             .also { container ->
                 DslObject(this).extensions.add("dokkaSourceSets", container)
-                project.findKotlinSourceSets().orEmpty().forEach { kotlinSourceSet ->
-                    container.register(kotlinSourceSet.name) { dokkaSourceSet ->
-                        dokkaSourceSet.configureWithKotlinSourceSetGist(kotlinSourceSet)
+                project.findKotlinSourceSets().orEmpty()
+                    .filter { it.predictedType == KotlinSourceSetGist.PredictedType.Main }
+                    .forEach { kotlinSourceSet ->
+                        container.register(kotlinSourceSet.name) { dokkaSourceSet ->
+                            dokkaSourceSet.configureWithKotlinSourceSetGist(kotlinSourceSet)
+                        }
                     }
-                }
             }
 
     override fun buildDokkaConfiguration(): DokkaConfigurationImpl {

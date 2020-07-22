@@ -8,6 +8,7 @@ import groovy.lang.Closure
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.tasks.*
 import org.gradle.util.ConfigureUtil
 import org.jetbrains.dokka.*
@@ -27,7 +28,7 @@ open class GradleDokkaSourceSetBuilder constructor(
 
     @Classpath
     @Optional
-    val classpath: MutableSet<File> = mutableSetOf()
+    val classpath: ConfigurableFileCollection = project.files()
 
     @Input
     @Optional
@@ -56,9 +57,6 @@ open class GradleDokkaSourceSetBuilder constructor(
 
     @Input
     var includeNonPublic: Boolean = DokkaDefaults.includeNonPublic
-
-    @Input
-    var includeRootPackage: Boolean = DokkaDefaults.includeRootPackage
 
     @Input
     var reportUndocumented: Boolean = DokkaDefaults.reportUndocumented
@@ -134,6 +132,10 @@ open class GradleDokkaSourceSetBuilder constructor(
     }
 
     // TODO NOW: Cover with tests
+
+    fun kotlinSourceSet(kotlinSourceSet: KotlinSourceSet) {
+        configureWithKotlinSourceSet(kotlinSourceSet)
+    }
 
     fun sourceRoot(file: File) {
         sourceRoots.add(file)
@@ -240,7 +242,6 @@ open class GradleDokkaSourceSetBuilder constructor(
             samples = samples.toSet(),
             includes = includes.toSet(),
             includeNonPublic = includeNonPublic,
-            includeRootPackage = includeRootPackage,
             reportUndocumented = reportUndocumented,
             skipEmptyPackages = skipEmptyPackages,
             skipDeprecated = skipDeprecated,
