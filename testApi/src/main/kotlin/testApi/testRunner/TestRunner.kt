@@ -65,10 +65,8 @@ abstract class AbstractCoreTest {
             sourceSets = configuration.sourceSets.map { sourceSet ->
                 sourceSet.copy(
                     sourceRoots = sourceSet.sourceRoots.map { sourceRoot ->
-                        sourceRoot.copy(
-                            directory = testDirPath.toFile().resolve(sourceRoot.directory)
-                        )
-                    }
+                        testDirPath.toFile().resolve(sourceRoot)
+                    }.toSet()
                 )
             }
         )
@@ -171,8 +169,8 @@ abstract class AbstractCoreTest {
             outputDir = File(outputDir),
             cacheRoot = cacheRoot?.let(::File),
             offlineMode = offlineMode,
-            sourceSets = sourceSets,
-            pluginsClasspath = pluginsClasspath,
+            sourceSets = sourceSets.toList(),
+            pluginsClasspath = pluginsClasspath.toSet(),
             pluginsConfiguration = pluginsConfigurations,
             modules = emptyList(),
             failOnWarning = failOnWarning
@@ -220,25 +218,25 @@ abstract class AbstractCoreTest {
             moduleDisplayName = moduleDisplayName ?: moduleName,
             displayName = displayName,
             sourceSetID = DokkaSourceSetID(moduleName, name),
-            classpath = classpath.map(::File),
-            sourceRoots = sourceRoots.map(::File).map(::SourceRootImpl),
+            classpath = classpath.map(::File).toSet(),
+            sourceRoots = sourceRoots.map(::File).toSet(),
             dependentSourceSets = dependentSourceSets,
-            samples = samples.map(::File),
-            includes = includes.map(::File),
+            samples = samples.map(::File).toSet(),
+            includes = includes.map(::File).toSet(),
             includeNonPublic = includeNonPublic,
             includeRootPackage = includeRootPackage,
             reportUndocumented = reportUndocumented,
             skipEmptyPackages = skipEmptyPackages,
             skipDeprecated = skipDeprecated,
             jdkVersion = jdkVersion,
-            sourceLinks = sourceLinks,
-            perPackageOptions = perPackageOptions,
-            externalDocumentationLinks = externalDocumentationLinks,
+            sourceLinks = sourceLinks.toSet(),
+            perPackageOptions = perPackageOptions.toList(),
+            externalDocumentationLinks = externalDocumentationLinks.toSet(),
             languageVersion = languageVersion,
             apiVersion = apiVersion,
             noStdlibLink = noStdlibLink,
             noJdkLink = noJdkLink,
-            suppressedFiles = suppressedFiles.map(::File),
+            suppressedFiles = suppressedFiles.map(::File).toSet(),
             analysisPlatform = Platform.fromString(analysisPlatform)
         )
     }
